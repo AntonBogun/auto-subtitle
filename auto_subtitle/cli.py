@@ -272,6 +272,7 @@ def get_subtitles(
 def execute_ffmpeg_command(command):
     try:
         # Run the command and wait for it to complete
+        print("Executing command:", command)#debug
         subprocess.run(command, check=True, shell=True)
         print("Command executed successfully.")
     except subprocess.CalledProcessError as e:
@@ -279,24 +280,7 @@ def execute_ffmpeg_command(command):
         print(f"An error occurred: {e}")
 
 
-# def build_ffmpeg_command(video_path, subtitle_path, output_path):
-#     video_path = str(video_path)
-#     subtitle_path = str(subtitle_path)
-#     output_path = str(output_path)
-#     # Replace backslashes with forward slashes
-#     subtitle_path = subtitle_path.replace("\\", "\\\\")
-#     if ":" in subtitle_path:
-#         subtitle_path = subtitle_path.replace(":", "\\:")
 
-#     command = (
-#         f'ffmpeg -i "{video_path}" -filter_complex '
-#         f'"[0:v]subtitles=\'{subtitle_path}\'[v]" -map "[v]" -map "0:a" -y "{output_path}"'
-#     )
-
-#     return command
-# def escape_ffmpeg_path(path: str) -> str:
-#     # Escape backslashes and single quotes
-#     return path.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
 def escape_ffmpeg_path(path: str) -> str:
     """
     Properly escape a path for use in FFmpeg filter_complex arguments.
@@ -336,25 +320,22 @@ def escape_ffmpeg_path(path: str) -> str:
     return f"'{path}'"
 
 
-# def escape_commandline_path(path:str)->str:
-#     #just need to escape " and \ for command line
-#     return '"' + path.replace('\\', '\\\\').replace('"', '\\"') + '"'
 def build_ffmpeg_command(video_path, subtitle_path, output_path):
     video_path = str(video_path)
     subtitle_path = str(subtitle_path)
-    # subtitle_path_escaped = escape_ffmpeg_path(subtitle_path)
     output_path = str(output_path)
     
-    # Use proper escaping for the subtitle path
-    # Double escape for Windows paths
-    # subtitle_path_escaped = subtitle_path.replace('\\', '\\\\').replace('\'', '\\\'').replace(':', '\\:')
-    
-    # For ffmpeg subtitles filter, we need to escape single quotes properly
-    command = (
-        # f'ffmpeg -i "{video_path}" -filter_complex '
-        # f'"[0:v]subtitles={subtitle_path_escaped}" -map 0:v -map 0:a -y "{output_path}"'
-        f'ffmpeg -i "{video_path}" -i "{subtitle_path}" -c:v copy -c:a copy -c:s mov_text -y "{output_path}"'
-    )
+    burn_in = False
+    if burn_in:
+        subtitle_path_escaped = escape_ffmpeg_path(subtitle_path)
+        command = (
+            f'ffmpeg -i "{video_path}" -filter_complex '
+            f'"[0:v]subtitles={subtitle_path_escaped}" -map 0:v -map 0:a -y "{output_path}"'
+        )
+    else:
+        command=(
+            f'ffmpeg -i "{video_path}" -i "{subtitle_path}" -c:v copy -c:a copy -c:s mov_text -y "{output_path}"'
+        )
     
     return command
 

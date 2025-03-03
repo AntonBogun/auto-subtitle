@@ -1,25 +1,42 @@
 # Automatic subtitles in your videos
 
-This repository uses `ffmpeg` and [OpenAI's Whisper](https://openai.com/blog/whisper) to automatically generate and overlay subtitles on any video.
+This repository is a fix of a [fork](https://github.com/Irvingouj/auto-subtitle) that is a fix of the original [auto-subtitle](https://github.com/m1guelpf/auto-subtitle) repository. 
+
+The original repository did not handle filenames correctly so the fork fixed that using pathlib.
+Then, the fork did not handle quoting correctly meaning the ffmpeg command that burns the subtitles into the video would fail if the filename had single quotes or similar.
+
+This fork has the code to correctly escape the filename, but that code is commented out in favor of adding the subtitles as a subtitle track instead of burning them into the video. It also enables usage of NVIDIA GPU acceleration if available.
 
 ## Installation
 
-To get started, you'll need Python 3.7 or newer. Install the binary by running the following command:
-
-    pip install git+https://github.com/m1guelpf/auto-subtitle.git
-
-You'll also need to install [`ffmpeg`](https://ffmpeg.org/), which is available from most package managers:
+The mandatory prerequisite is [`ffmpeg`](https://ffmpeg.org/), which is available from most package managers:
 
 ```bash
+# on Windows using Chocolatey (https://chocolatey.org/)
+choco install ffmpeg
+
 # on Ubuntu or Debian
 sudo apt update && sudo apt install ffmpeg
 
 # on MacOS using Homebrew (https://brew.sh/)
 brew install ffmpeg
-
-# on Windows using Chocolatey (https://chocolatey.org/)
-choco install ffmpeg
 ```
+
+The optional prerequisite is [`torch.cu***`](https://pytorch.org/get-started/locally/) which is available from the PyTorch website. Select the appropriate version for your system.
+
+Note: you may need to uninstall the modules listed in the generated command for it to download the correct cuda-enabled version.
+
+---
+
+It is possible to install this fork like the original repository via:
+
+    pip install git+https://github.com/AntonBogun/auto-subtitle.git
+
+But, in case anything breaks and you have to edit the code, you can install it via:
+
+    git clone https://github.com/AntonBogun/auto-subtitle
+    cd auto-subtitle
+    pip install -e .
 
 ## Usage
 

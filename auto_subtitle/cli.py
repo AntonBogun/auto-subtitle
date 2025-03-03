@@ -8,7 +8,8 @@ import warnings
 import tempfile
 from pathlib import Path
 from .utils import filename, str2bool, write_srt
-
+import re
+import torch
 
 def main():
     parser = argparse.ArgumentParser(
@@ -186,7 +187,11 @@ def main():
     elif language != "auto":
         args["language"] = language
 
-    model = whisper.load_model(model_name)
+    #use gpu
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # model = whisper.load_model(model_name)
+    model = whisper.load_model(model_name, device=device)
+
     audios = get_audio(good_video_pathes)
     subtitles_path = get_subtitles(
         audios,
@@ -246,7 +251,7 @@ def get_subtitles(
 
         # Skip if file already exists
         if srt_path.exists():
-            print(f"Subtitle file for {Path(path).name} already exists. Skipping...")
+            print(f"Subtitle file for {Path(path).name} already exists ({srt_path}). Skipping...")
             subtitles_path[path] = str(srt_path)
             continue
 
@@ -274,20 +279,83 @@ def execute_ffmpeg_command(command):
         print(f"An error occurred: {e}")
 
 
+# def build_ffmpeg_command(video_path, subtitle_path, output_path):
+#     video_path = str(video_path)
+#     subtitle_path = str(subtitle_path)
+#     output_path = str(output_path)
+#     # Replace backslashes with forward slashes
+#     subtitle_path = subtitle_path.replace("\\", "\\\\")
+#     if ":" in subtitle_path:
+#         subtitle_path = subtitle_path.replace(":", "\\:")
+
+#     command = (
+#         f'ffmpeg -i "{video_path}" -filter_complex '
+#         f'"[0:v]subtitles=\'{subtitle_path}\'[v]" -map "[v]" -map "0:a" -y "{output_path}"'
+#     )
+
+#     return command
+# def escape_ffmpeg_path(path: str) -> str:
+#     # Escape backslashes and single quotes
+#     return path.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
+def escape_ffmpeg_path(path: str) -> str:
+    """
+    Properly escape a path for use in FFmpeg filter_complex arguments.
+    
+    This handles the multiple levels of escaping required:
+    1. First level: Escaping characters within the filter option value
+    2. Second level: Escaping for the filtergraph description
+    3. For Windows paths, convert backslashes to forward slashes or escape properly
+    
+    Args:
+        path: The file path to escape
+        
+    Returns:
+        Properly escaped path for FFmpeg filter_complex
+    
+    References:
+        http://underpop.online.fr/f/ffmpeg/ffmpeg-utils.html.gz#quoting_005fand_005fescaping
+        http://underpop.online.fr/f/ffmpeg/help/notes-on-filtergraph-escaping.htm.gz
+    """
+    if os.name != "nt":
+        raise NotImplementedError("Only Windows is supported for now")
+    # return (r"\'".join(("'"+part+"'" if len(part)>0 else "") for part in path.split("'") if len(part)>0)) if len(path)>0 else "''"
+    # For Windows paths, we have two options:
+    # 1. Convert backslashes to forward slashes (simpler)
+    path = path.replace('\\', '/')
+    
+    # Option 2 (alternative): Escape backslashes properly (more complex)
+    # path = path.replace('\\', '\\\\')
+    
+    # First level escaping: escape ':
+    path = re.sub(r"([:'\\])", r"\\\1", path)
+    #enclose to keep spaces
+    path = f"'{path}'"
+    # Second level escaping: escape filter graph special chars [],;'
+    path = re.sub(r"([,\[\];'\\])", r"\\\1", path)
+    #enclose a final time
+    return f"'{path}'"
+
+
+# def escape_commandline_path(path:str)->str:
+#     #just need to escape " and \ for command line
+#     return '"' + path.replace('\\', '\\\\').replace('"', '\\"') + '"'
 def build_ffmpeg_command(video_path, subtitle_path, output_path):
     video_path = str(video_path)
     subtitle_path = str(subtitle_path)
+    # subtitle_path_escaped = escape_ffmpeg_path(subtitle_path)
     output_path = str(output_path)
-    # Replace backslashes with forward slashes
-    subtitle_path = subtitle_path.replace("\\", "\\\\")
-    if ":" in subtitle_path:
-        subtitle_path = subtitle_path.replace(":", "\\:")
-
+    
+    # Use proper escaping for the subtitle path
+    # Double escape for Windows paths
+    # subtitle_path_escaped = subtitle_path.replace('\\', '\\\\').replace('\'', '\\\'').replace(':', '\\:')
+    
+    # For ffmpeg subtitles filter, we need to escape single quotes properly
     command = (
-        f'ffmpeg -i "{video_path}" -filter_complex '
-        f'"[0:v]subtitles=\'{subtitle_path}\'[v]" -map "[v]" -map "0:a" -y "{output_path}"'
+        # f'ffmpeg -i "{video_path}" -filter_complex '
+        # f'"[0:v]subtitles={subtitle_path_escaped}" -map 0:v -map 0:a -y "{output_path}"'
+        f'ffmpeg -i "{video_path}" -i "{subtitle_path}" -c:v copy -c:a copy -c:s mov_text -y "{output_path}"'
     )
-
+    
     return command
 
 
